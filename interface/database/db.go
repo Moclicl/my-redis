@@ -7,3 +7,7 @@ type DB interface {
 	Close()
 	ClientClose(client redis.Connection)
 }
+
+type DataEntity struct {
+	Data interface{}
+}

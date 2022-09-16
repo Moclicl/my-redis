@@ -51,9 +51,11 @@ func (currentDict *CurrentDict) getShard(index uint32) *shard {
 }
 
 func (currentDict *CurrentDict) addCount() {
-
 	atomic.AddInt32(&currentDict.count, 1)
+}
 
+func (currentDict *CurrentDict) decreaseCount() {
+	atomic.AddInt32(&currentDict.count, -1)
 }
 
 func (currentDict *CurrentDict) Put(key string, val interface{}) (result int) {
@@ -105,5 +107,25 @@ func (currentDict *CurrentDict) ForEach(consumer Consumer) {
 			}
 		}()
 	}
+
+}
+
+func (currentDict *CurrentDict) Remove(key string) (result int) {
+	if currentDict == nil {
+		panic("CurrentDict is null")
+	}
+
+	hashCode := fnv(key)
+	index := currentDict.spread(hashCode)
+	shard := currentDict.getShard(index)
+	shard.mutex.Lock()
+	defer shard.mutex.Unlock()
+
+	if _, ok := shard.m[key]; ok {
+		delete(shard.m, key)
+		currentDict.decreaseCount()
+		return 1
+	}
+	return 0
 
 }

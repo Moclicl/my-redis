@@ -6,11 +6,7 @@ import (
 )
 
 func init() {
-	RegisterCommand("ping", Ping, noPrepare, nil)
-}
-
-func noPrepare(args [][]byte) ([]string, []string) {
-	return nil, nil
+	RegisterCommand("ping", Ping, noPrepare, nil, 1, true)
 }
 
 func Ping(db *DB, args [][]byte) redis.Reply {

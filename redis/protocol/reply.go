@@ -42,7 +42,7 @@ type StatusIntReply struct {
 }
 
 func (r *StatusIntReply) ToBytes() []byte {
-	return []byte("-" + strconv.FormatInt(r.Code, 10) + CRLF)
+	return []byte(":" + strconv.FormatInt(r.Code, 10) + CRLF)
 }
 
 func MakeStatusIntReply(code int64) *StatusIntReply {
@@ -113,4 +113,11 @@ type OkReply struct{}
 
 func (r *OkReply) ToBytes() []byte {
 	return []byte("+OK\r\n")
+}
+
+// ---------- null返回 ----------
+type NullReply struct{}
+
+func (r *NullReply) ToBytes() []byte {
+	return []byte("$-1\r\n")
 }
