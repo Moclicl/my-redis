@@ -9,9 +9,10 @@ import (
 )
 
 type DB struct {
-	index  int       //数据库下标
-	data   dict.Dict //数据库操作
-	ttlMap dict.Dict //过期时间表
+	index  int            //数据库下标
+	data   dict.Dict      //数据库操作
+	ttlMap dict.Dict      //过期时间表
+	aof    func([][]byte) //AOF
 }
 
 const (

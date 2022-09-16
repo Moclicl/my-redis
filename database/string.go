@@ -34,7 +34,9 @@ func execSet(db *DB, args [][]byte) redis.Reply {
 
 	result := db.PutEntity(key, entity)
 
-	//TODO aof
+	if result > 0 {
+
+	}
 
 	if result > 0 {
 		return &protocol.OkReply{}
