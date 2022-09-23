@@ -1,8 +1,8 @@
 package database
 
 import (
-	"container/list"
 	"my-redis/datastruct/dict"
+	"my-redis/datastruct/list"
 	"my-redis/interface/redis"
 	"my-redis/redis/protocol"
 	"time"

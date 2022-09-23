@@ -77,6 +77,24 @@ func (currentDict *CurrentDict) Put(key string, val interface{}) (result int) {
 	return 1
 }
 
+func (currentDict *CurrentDict) PutIfAbsent(key string, val interface{}) (result int) {
+	if currentDict == nil {
+		panic("CurrentDict is null")
+	}
+	hashCode := fnv(key)
+	index := currentDict.spread(hashCode)
+	shard := currentDict.getShard(index)
+	shard.mutex.Lock()
+	defer shard.mutex.Unlock()
+
+	if _, ok := shard.m[key]; ok {
+		return 0
+	}
+	shard.m[key] = val
+	currentDict.addCount()
+	return 1
+}
+
 func (currentDict *CurrentDict) Get(key string) (val interface{}, exist bool) {
 	if currentDict == nil {
 		panic("CurrentDict is null")
@@ -128,4 +146,11 @@ func (currentDict *CurrentDict) Remove(key string) (result int) {
 	}
 	return 0
 
+}
+
+func (currentDict *CurrentDict) Len() int {
+	if currentDict == nil {
+		panic("currentDict is nil")
+	}
+	return int(atomic.LoadInt32(&currentDict.count))
 }
