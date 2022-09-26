@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	RegisterCommand("LPUSH", execLPush, writeFirstKey, nil, 3, false)
+	RegisterCommand("LPUSH", execLPush, writeFirstKey, nil, -3, false)
 	RegisterCommand("LRANGE", execLRange, writeFirstKey, nil, 4, true)
 	RegisterCommand("LLEN", execLLen, writeFirstKey, nil, 2, true)
 	RegisterCommand("LSET", execLSet, writeFirstKey, nil, 4, false)

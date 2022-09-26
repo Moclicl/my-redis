@@ -4,7 +4,7 @@ type SimpleDict struct {
 	m map[string]interface{}
 }
 
-func MakeSimple(key string) *SimpleDict {
+func MakeSimple() *SimpleDict {
 	return &SimpleDict{m: make(map[string]interface{})}
 }
 

@@ -30,7 +30,7 @@ func (db *DB) getOrInitDict(key string) (dict.Dict, bool, redis.Reply) {
 	_dict, _ := db.getDict(key)
 	var initialized = false
 	if _dict == nil {
-		_dict = dict.MakeSimple(key)
+		_dict = dict.MakeSimple()
 		db.PutEntity(key, &database.DataEntity{Data: _dict})
 		initialized = true
 	}
