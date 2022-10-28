@@ -4,6 +4,7 @@ import (
 	"my-redis/datastruct/dict"
 	"my-redis/datastruct/list"
 	"my-redis/datastruct/set"
+	"my-redis/datastruct/sortedset"
 	"my-redis/interface/redis"
 	"my-redis/redis/protocol"
 	"time"
@@ -57,7 +58,8 @@ func execType(db *DB, args [][]byte) redis.Reply {
 		return protocol.MakeStatusReply("hash")
 	case *set.Set:
 		return protocol.MakeStatusReply("set")
-		//TODO set and sortedset
+	case *sortedset.SortedSet:
+		return protocol.MakeStatusReply("zset")
 	}
 	return &protocol.UnknownErrReply{}
 }
