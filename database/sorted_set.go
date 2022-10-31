@@ -11,9 +11,9 @@ import (
 
 func init() {
 	RegisterCommand("ZADD", execZAdd, writeFirstKey, nil, -4, false)
-	RegisterCommand("ZCARD", execZCard, writeFirstKey, nil, -4, true)
+	RegisterCommand("ZCARD", execZCard, writeFirstKey, nil, 2, true)
 	RegisterCommand("ZRANGE", execZRange, writeFirstKey, nil, -4, true)
-	RegisterCommand("ZREM", execZRem, writeFirstKey, nil, -4, false)
+	RegisterCommand("ZREM", execZRem, writeFirstKey, nil, -3, false)
 }
 
 func (db *DB) getOrInitSortedSet(key string) (*sortedset.SortedSet, redis.Reply) {
@@ -98,10 +98,81 @@ func execZRange(db *DB, args [][]byte) redis.Reply {
 	return range0(db, key, start, stop, withScores, false)
 }
 
-func range0(db *DB, key string, start int64, stop int64, scores bool, b bool) redis.Reply {
+func range0(db *DB, key string, start int64, stop int64, withScores bool, desc bool) redis.Reply {
+	sortedSet, errRep := db.getSortedSet(key)
+	if errRep != nil {
+		return errRep
+	}
+	if sortedSet == nil {
+		return &protocol.EmptyMultiBulkReply{}
+	}
+
+	size := sortedSet.Len()
+
+	//[start, stop)
+	if start < -1*size {
+		start = 0
+	} else if start < 0 {
+		start = size + start
+	} else if start >= size {
+		return &protocol.EmptyMultiBulkReply{}
+	}
+	if stop < -1*size {
+		stop = 0
+	} else if stop < 0 {
+		stop = size + stop + 1
+	} else if stop < size {
+		stop = stop + 1
+	} else {
+		stop = size
+	}
+	if stop < start {
+		stop = start
+	}
+
+	slice := sortedSet.Range(start, stop, desc)
+	if withScores {
+		result := make([][]byte, len(slice)*2)
+		i := 0
+		for _, element := range slice {
+			result[i] = []byte(element.Member)
+			i++
+			result[i] = []byte(strconv.FormatFloat(element.Score, 'f', -1, 64))
+			i++
+		}
+		return protocol.MakeMultiBulkReply(result)
+	}
+	result := make([][]byte, len(slice))
+	i := 0
+	for _, element := range slice {
+		result[i] = []byte(element.Member)
+		i++
+	}
+	return protocol.MakeMultiBulkReply(result)
 
 }
 
 func execZRem(db *DB, args [][]byte) redis.Reply {
+	key := string(args[0])
+	fields := make([]string, len(args)-1)
+	fieldArgs := args[1:]
+	for i, v := range fieldArgs {
+		fields[i] = string(v)
+	}
 
+	sortedSet, errRep := db.getSortedSet(key)
+	if errRep != nil {
+		return errRep
+	}
+	if sortedSet == nil {
+		return protocol.MakeStatusIntReply(0)
+	}
+
+	deleted := 0
+	for _, field := range fields {
+		if sortedSet.Remove(field) {
+			deleted++
+		}
+	}
+	return protocol.MakeStatusIntReply(int64(deleted))
 }

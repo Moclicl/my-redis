@@ -98,5 +98,60 @@ func (s *SkipList) insert(member string, score float64) *node {
 }
 
 func (s *SkipList) remove(member string, score float64) bool {
-	return true
+
+	update := make([]*node, maxLevel)
+	node := s.header
+	for level := s.level - 1; level >= 0; level-- {
+		for node.level[level].forward != nil &&
+			(node.level[level].forward.Score < score ||
+				(node.level[level].forward.Score == score && node.level[level].forward.Member < member)) {
+			node = node.level[level].forward
+		}
+		update[level] = node
+	}
+
+	node = node.level[0].forward
+	if node != nil && member == node.Member && score == node.Score {
+		s.removeNode(node, update)
+		return true
+	}
+	return false
+}
+
+func (s *SkipList) getByRank(rank int64) *node {
+	i := int64(0)
+	n := s.header
+	for level := s.level - 1; level >= 0; level-- {
+		for n.level[level].forward != nil && (i+n.level[level].span) <= rank {
+			i += n.level[level].span
+			n = n.level[level].forward
+		}
+		if i == rank {
+			return n
+		}
+	}
+	return nil
+}
+
+func (s *SkipList) removeNode(node *node, update []*node) {
+
+	for i := int16(0); i < s.level; i++ {
+		if update[i].level[i].forward == node {
+			update[i].level[i].span += node.level[i].span
+			update[i].level[i].forward = node.level[i].forward
+		} else {
+			update[i].level[i].span--
+		}
+	}
+
+	if node.level[0].forward != nil {
+		node.level[0].forward.backward = node.backward
+	} else {
+		s.tail = node.backward
+	}
+
+	for s.level > 1 && s.header.level[s.level-1].forward == nil {
+		s.level--
+	}
+	s.length--
 }
