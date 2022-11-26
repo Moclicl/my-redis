@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"my-redis/config"
 	"my-redis/interface/redis"
 	"my-redis/lib/logger"
 	"my-redis/redis/protocol"
@@ -30,6 +31,12 @@ func CreateRedisServer() *RedisDB {
 		holder := &atomic.Value{}
 		holder.Store(singleDB)
 		db.dbList[i] = holder
+	}
+
+	aof := false
+
+	if config.Properties.RDBFilename != "" && !aof {
+		loadRdbFile(db)
 	}
 
 	return db
@@ -81,6 +88,14 @@ func (r *RedisDB) selectDB(dbIndex int) (*DB, *protocol.StatusErrReply) {
 	return r.dbList[dbIndex].Load().(*DB), nil
 }
 
+func (r *RedisDB) _selectDB(dbIndex int) *DB {
+	db, err := r.selectDB(dbIndex)
+	if err != nil {
+		panic(err)
+	}
+	return db
+}
+
 func (r *RedisDB) Close() {
 	panic("implement me")
 }
@@ -111,4 +126,8 @@ func (r *RedisDB) loadDB(index int, newDB *DB) redis.Reply {
 	newDB.index = index
 	r.dbList[index].Store(newDB)
 	return &protocol.OkReply{}
+}
+
+func BGSaveRDB(db *RedisDB) redis.Reply {
+	return nil
 }

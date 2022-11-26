@@ -4,8 +4,11 @@ import (
 	"my-redis/datastruct/dict"
 	"my-redis/interface/database"
 	"my-redis/interface/redis"
+	"my-redis/lib/lock"
+	"my-redis/lib/time_utils"
 	"my-redis/redis/protocol"
 	"strings"
+	"time"
 )
 
 type DB struct {
@@ -13,6 +16,7 @@ type DB struct {
 	data   dict.Dict      //数据库操作
 	ttlMap dict.Dict      //过期时间表
 	aof    func([][]byte) //AOF
+	locker *lock.Locks
 }
 
 const (
@@ -86,4 +90,35 @@ func (db *DB) Removes(keys ...string) (deleted int) {
 func (db *DB) Remove(key string) {
 	db.data.Remove(key)
 	db.ttlMap.Remove(key)
+}
+
+func (db *DB) RWLocks(writeKeys []string, readKeys []string) {
+	db.locker.RWLocks(writeKeys, readKeys)
+}
+
+func (db *DB) RWUnLocks(writeKeys []string, readKeys []string) {
+	db.locker.RWUnlocks(writeKeys, readKeys)
+}
+
+func genExpireTask(key string) string {
+	return "expire" + key
+}
+
+func (db *DB) Expire(key string, expireTime time.Time) {
+	db.ttlMap.Put(key, expireTime)
+	taskKey := genExpireTask(key)
+	time_utils.Add(expireTime, taskKey, func() {
+		keys := []string{key}
+		db.RWLocks(keys, nil)
+		defer db.RWUnLocks(keys, nil)
+		rawExpireTime, ok := db.ttlMap.Get(key)
+		if !ok {
+			return
+		}
+		expireTime, _ = rawExpireTime.(time.Time)
+		expired := time.Now().After(expireTime)
+		if expired {
+			db.Remove(key)
+		}
+	})
 }
