@@ -6,6 +6,7 @@ import (
 	"my-redis/datastruct/set"
 	"my-redis/datastruct/sortedset"
 	"my-redis/interface/redis"
+	"my-redis/lib/utils"
 	"my-redis/redis/protocol"
 	"time"
 )
@@ -24,7 +25,9 @@ func execDel(db *DB, args [][]byte) redis.Reply {
 	}
 
 	deleted := db.Removes(keys...)
-	//TODO AOF
+	if deleted > 0 {
+		db.aof(utils.ToCmdLine2("del", args...))
+	}
 	return protocol.MakeStatusIntReply(int64(deleted))
 }
 

@@ -3,6 +3,7 @@ package database
 import (
 	"my-redis/interface/database"
 	"my-redis/interface/redis"
+	"my-redis/lib/utils"
 	"my-redis/redis/protocol"
 )
 
@@ -35,7 +36,7 @@ func execSet(db *DB, args [][]byte) redis.Reply {
 	result := db.PutEntity(key, entity)
 
 	if result > 0 {
-
+		db.aof(utils.ToCmdLine2("set", args...))
 	}
 
 	if result > 0 {

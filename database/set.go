@@ -4,6 +4,7 @@ import (
 	HashSet "my-redis/datastruct/set"
 	"my-redis/interface/database"
 	"my-redis/interface/redis"
+	"my-redis/lib/utils"
 	"my-redis/redis/protocol"
 )
 
@@ -32,6 +33,10 @@ func execSRem(db *DB, args [][]byte) redis.Reply {
 
 	if set.Len() == 0 {
 		db.Remove(key)
+	}
+
+	if count > 0 {
+		db.aof(utils.ToCmdLine2("srem", args...))
 	}
 
 	return protocol.MakeStatusIntReply(int64(count))
@@ -86,7 +91,7 @@ func execSAdd(db *DB, args [][]byte) redis.Reply {
 	for _, value := range values {
 		count += set.Add(string(value))
 	}
-
+	db.aof(utils.ToCmdLine2("sadd", args...))
 	return protocol.MakeStatusIntReply(int64(count))
 
 }

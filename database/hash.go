@@ -4,6 +4,7 @@ import (
 	"my-redis/datastruct/dict"
 	"my-redis/interface/database"
 	"my-redis/interface/redis"
+	"my-redis/lib/utils"
 	"my-redis/redis/protocol"
 )
 
@@ -49,6 +50,7 @@ func execHSet(db *DB, args [][]byte) redis.Reply {
 	}
 
 	res := _dict.Put(field, value)
+	db.aof(utils.ToCmdLine2("hset", args...))
 	return protocol.MakeStatusIntReply(int64(res))
 
 }
@@ -63,7 +65,7 @@ func execHSetNX(db *DB, args [][]byte) redis.Reply {
 		return err
 	}
 	res := _dict.PutIfAbsent(field, value)
-
+	db.aof(utils.ToCmdLine2("hsetnx", args...))
 	return protocol.MakeStatusIntReply(int64(res))
 
 }

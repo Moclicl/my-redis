@@ -4,6 +4,7 @@ import (
 	"my-redis/datastruct/sortedset"
 	"my-redis/interface/database"
 	"my-redis/interface/redis"
+	"my-redis/lib/utils"
 	"my-redis/redis/protocol"
 	"strconv"
 	"strings"
@@ -61,6 +62,8 @@ func execZAdd(db *DB, args [][]byte) redis.Reply {
 			i++
 		}
 	}
+
+	db.aof(utils.ToCmdLine2("zadd", args...))
 
 	return protocol.MakeStatusIntReply(int64(i))
 
@@ -173,6 +176,10 @@ func execZRem(db *DB, args [][]byte) redis.Reply {
 		if sortedSet.Remove(field) {
 			deleted++
 		}
+	}
+
+	if deleted > 0 {
+		db.aof(utils.ToCmdLine2("zrem", args...))
 	}
 	return protocol.MakeStatusIntReply(int64(deleted))
 }

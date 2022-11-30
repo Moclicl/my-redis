@@ -54,7 +54,7 @@ func execLPush(db *DB, args [][]byte) redis.Reply {
 	for _, value := range values {
 		list.Insert(0, value)
 	}
-
+	db.aof(utils.ToCmdLine2("lpush", args...))
 	return protocol.MakeStatusIntReply(int64(list.Len()))
 
 }
@@ -154,6 +154,7 @@ func execLSet(db *DB, args [][]byte) redis.Reply {
 		return protocol.MakeStatusErrReply("index out of bound")
 	}
 	list.Set(index, value)
+	db.aof(utils.ToCmdLine2("lset", args...))
 	return &protocol.OkReply{}
 
 }
@@ -187,6 +188,10 @@ func execLRem(db *DB, args [][]byte) redis.Reply {
 
 	if list.Len() == 0 {
 		db.Remove(key)
+	}
+
+	if removed > 0 {
+		db.aof(utils.ToCmdLine2("lrem", args...))
 	}
 
 	return protocol.MakeStatusIntReply(int64(removed))
