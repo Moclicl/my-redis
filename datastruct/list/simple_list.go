@@ -204,3 +204,24 @@ func (iter *iterator) remove() interface{} {
 	iter.list.size--
 	return val
 }
+
+func (sl *SimpleList) ForEach(consumer Consumer) {
+	if sl == nil {
+		panic("list is nil")
+	}
+	if sl.Len() == 0 {
+		return
+	}
+
+	iter := sl.find(0)
+	for {
+		next := consumer(iter.get())
+		if !next {
+			break
+		}
+		if !iter.next() {
+			break
+		}
+	}
+
+}

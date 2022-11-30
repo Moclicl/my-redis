@@ -26,3 +26,11 @@ func BytesEquals(a []byte, b []byte) bool {
 	}
 	return true
 }
+
+func ToCmdLine(cmdLine ...string) [][]byte {
+	args := make([][]byte, len(cmdLine))
+	for i, s := range cmdLine {
+		args[i] = []byte(s)
+	}
+	return args
+}

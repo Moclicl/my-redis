@@ -2,18 +2,25 @@ package database
 
 import (
 	"fmt"
+	"my-redis/aof"
 	"my-redis/config"
+	"my-redis/interface/database"
 	"my-redis/interface/redis"
 	"my-redis/lib/logger"
+	"my-redis/rdb"
 	"my-redis/redis/protocol"
 	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 )
 
 type RedisDB struct {
 	dbList []*atomic.Value
+
+	rdbHandler *rdb.Handler
+	aofHandler *aof.Handler
 }
 
 // 默认16个redis库
@@ -23,7 +30,10 @@ func CreateRedisServer() *RedisDB {
 
 	db := &RedisDB{}
 
-	db.dbList = make([]*atomic.Value, databases)
+	if config.Properties.Databases == 0 {
+		config.Properties.Databases = databases
+	}
+	db.dbList = make([]*atomic.Value, config.Properties.Databases)
 
 	for i := range db.dbList {
 		singleDB := MakeDB()
@@ -33,9 +43,25 @@ func CreateRedisServer() *RedisDB {
 		db.dbList[i] = holder
 	}
 
-	aof := false
+	db.rdbHandler = rdb.NewHandler(db)
 
-	if config.Properties.RDBFilename != "" && !aof {
+	aofOpen := false
+	if config.Properties.AppendOnly {
+		aofHandler, err := aof.NewAOFHandler(db)
+		if err != nil {
+			panic(err)
+		}
+		db.aofHandler = aofHandler
+		for _, mdb := range db.dbList {
+			singleDB := mdb.Load().(*DB)
+			singleDB.aof = func(line [][]byte) {
+				db.aofHandler.AddAof(singleDB.index, line)
+			}
+		}
+		aofOpen = true
+	}
+
+	if config.Properties.RDBFilename != "" && !aofOpen {
 		loadRdbFile(db)
 	}
 
@@ -58,6 +84,14 @@ func (r *RedisDB) Exec(c redis.Connection, cmd [][]byte) (result redis.Reply) {
 		return r.flushDB(c.GetDBIndex())
 	} else if cmdName == "select" {
 		return execSelect(c, r, cmd[1:])
+	} else if cmdName == "save" {
+		return SaveRDB(r)
+	} else if cmdName == "bgsave" {
+		return BGSaveRDB(r)
+	} else if cmdName == "bgrewriteaof" {
+		return BGRewriteAOF(r)
+	} else if cmdName == "rewriteaof" {
+		return RewriteAOF(r)
 	}
 
 	dbIndex := c.GetDBIndex()
@@ -88,7 +122,7 @@ func (r *RedisDB) selectDB(dbIndex int) (*DB, *protocol.StatusErrReply) {
 	return r.dbList[dbIndex].Load().(*DB), nil
 }
 
-func (r *RedisDB) _selectDB(dbIndex int) *DB {
+func (r *RedisDB) multiSelectDB(dbIndex int) *DB {
 	db, err := r.selectDB(dbIndex)
 	if err != nil {
 		panic(err)
@@ -97,7 +131,9 @@ func (r *RedisDB) _selectDB(dbIndex int) *DB {
 }
 
 func (r *RedisDB) Close() {
-	panic("implement me")
+	if r.aofHandler != nil {
+		r.aofHandler.Close()
+	}
 }
 
 func (r *RedisDB) ClientClose(c redis.Connection) {
@@ -128,6 +164,47 @@ func (r *RedisDB) loadDB(index int, newDB *DB) redis.Reply {
 	return &protocol.OkReply{}
 }
 
+func (r *RedisDB) ForEach(dbIndex int, cb func(key string, data *database.DataEntity, expiration *time.Time) bool) {
+	r.multiSelectDB(dbIndex).ForEach(cb)
+}
+
+func (r *RedisDB) GetDBSize(dbIndex int) (int, int) {
+	db := r.multiSelectDB(dbIndex)
+	return db.data.Len(), db.ttlMap.Len()
+}
+
+func SaveRDB(db *RedisDB) redis.Reply {
+	err := db.rdbHandler.Rewrite2RDB()
+	if err != nil {
+		logger.Error(err)
+	}
+	return &protocol.OkReply{}
+}
+
 func BGSaveRDB(db *RedisDB) redis.Reply {
-	return nil
+	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				logger.Error(err)
+			}
+		}()
+		err := db.rdbHandler.Rewrite2RDB()
+		if err != nil {
+			logger.Error(err)
+		}
+	}()
+	return protocol.MakeStatusReply("Background saving started")
+}
+
+func BGRewriteAOF(r *RedisDB) redis.Reply {
+	go r.aofHandler.Rewrite()
+	return protocol.MakeStatusReply("Background append only file rewriting started")
+}
+
+func RewriteAOF(r *RedisDB) redis.Reply {
+	err := r.aofHandler.Rewrite()
+	if err != nil {
+		return protocol.MakeStatusErrReply(err.Error())
+	}
+	return &protocol.OkReply{}
 }

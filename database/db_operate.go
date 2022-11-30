@@ -122,3 +122,16 @@ func (db *DB) Expire(key string, expireTime time.Time) {
 		}
 	})
 }
+
+func (db DB) ForEach(cb func(key string, data *database.DataEntity, expiration *time.Time) bool) {
+	db.data.ForEach(func(key string, val interface{}) bool {
+		entity, _ := val.(*database.DataEntity)
+		var expiration *time.Time
+		rawExpireTime, ok := db.ttlMap.Get(key)
+		if ok {
+			expireTime, _ := rawExpireTime.(time.Time)
+			expiration = &expireTime
+		}
+		return cb(key, entity, expiration)
+	})
+}
